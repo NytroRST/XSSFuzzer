@@ -1,0 +1,651 @@
+<html>
+
+<head>
+    <title>XSS Fuzzer</title>
+	<meta charset="utf-8" />
+    <style>
+
+.displayinline
+{
+    display: inline-block;
+}
+
+.round {
+	border: 2px solid #765942;
+	border-radius: 10px;
+    padding: 10px 10px 10px 10px;
+}
+    
+table.blueTable {
+  border: 1px solid #1C6EA4;
+  background-color: #EEEEEE;
+  width: 90%;
+  text-align: left;
+  border-collapse: collapse;
+}
+table.blueTable td, table.blueTable th {
+  border: 1px solid #AAAAAA;
+  padding: 3px 2px;
+}
+table.blueTable tbody td {
+  font-size: 13px;
+}
+table.blueTable thead {
+  background: #1C6EA4;
+  background: -moz-linear-gradient(top, #5592bb 0%, #327cad 66%, #1C6EA4 100%);
+  background: -webkit-linear-gradient(top, #5592bb 0%, #327cad 66%, #1C6EA4 100%);
+  background: linear-gradient(to bottom, #3c4b56 0%, #327cad 66%, #1C6EA4 100%);
+  border-bottom: 2px solid #444444;
+}
+table.blueTable thead th {
+  font-size: 15px;
+  height: 40px;
+  font-weight: bold;
+  color: #FFFFFF;
+  border-left: 2px solid #D0E4F5;
+}
+table.blueTable thead th:first-child {
+  border-left: none;
+}
+
+/* https://purecss.io/buttons/ */
+
+.button-success {
+    color: white;
+    font-size: 12pt;
+    border-radius: 4px;
+    margin: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+    background: #327cad; /* this is a green */
+}
+
+.button-simple {
+    color: white;
+    font-size: 12pt;
+    border-radius: 4px;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+    background: #327cad; /* this is a green */
+}
+
+    </style>
+
+    <script>
+        // Class for fuzzing lists 
+
+        class FuzzList {
+            constructor(listname, textvalues) {
+                this.name = listname;
+                this.list = textvalues;
+            }
+        }
+
+        // Array of fuzzing lists 
+
+        fuzzing_array = [];
+
+        // Default fuzzing lists
+
+        var htmllist = new FuzzList("[TAG]", "img\nsvg");
+        fuzzing_array.push(htmllist);
+
+        var eventlist = new FuzzList("[EVENT]", "onerror\nonload");
+        fuzzing_array.push(eventlist);
+
+        var attrlist = new FuzzList("[ATTR]", "src\nvalue");
+        fuzzing_array.push(attrlist);
+		
+		// Array Remove - By John Resig (MIT Licensed)
+		
+		Array.prototype.remove = function(from, to) {
+			var rest = this.slice((to || from) + 1 || this.length);
+			this.length = from < 0 ? this.length + from : from;
+			return this.push.apply(this, rest);
+		};
+
+        // Initialization
+
+        function Initialization() {
+            for (var i = 0; i < fuzzing_array.length; i++) {
+                var opt = document.createElement('option');
+                opt.value = fuzzing_array[i].name;
+                opt.innerHTML = fuzzing_array[i].name;
+
+                var select = document.getElementById("fuzzing");
+                select.appendChild(opt);
+            }
+        }
+
+        // Save new fuzzing list 
+
+        function SaveFuzzingList() {
+            var myselect = document.getElementById("fuzzing");
+            if(myselect.selectedIndex == -1) return;
+
+            var listname = myselect.options[myselect.selectedIndex].value;
+
+            var list_data = document.getElementById("fuzz_list_data").value;
+
+            // Check if the list is already there
+
+            var found = false;
+
+            for (var i = 0; i < fuzzing_array.length; i++) {
+                if (fuzzing_array[i].name == listname) {
+                    fuzzing_array[i].list = list_data;
+                    found = true;
+                }
+            }
+
+            if(!found)
+            {
+                var new_list = new FuzzList(listname, list_data);
+                fuzzing_array.push(new_list);
+            }
+        }
+
+        // On changing the fuzzing list 
+
+        function SelectChanged() {
+            var myselect = document.getElementById("fuzzing");
+            if(myselect.selectedIndex == -1) return;
+
+            var list_name = myselect.options[myselect.selectedIndex].value;
+            var list_data_elem = document.getElementById("fuzz_list_data");
+
+            // Parse list data and check value
+
+            var found = false;
+            for (var i = 0; i < fuzzing_array.length; i++) {
+                if (fuzzing_array[i].name == list_name) {
+                    list_data_elem.value = fuzzing_array[i].list;
+                    found = true;
+                }
+            }
+
+            if (!found) list_data_elem.value = "";
+        }
+
+        // Function to add a new fuzz list  
+
+        function AddPlaceholder() {
+            var placeholder = document.getElementById("placeholder").value;
+            var opt = document.createElement('option');
+            opt.value = placeholder;
+            opt.innerHTML = placeholder;
+
+            var select = document.getElementById("fuzzing");
+            select.appendChild(opt);
+        }
+		
+		// Function used to delete a placeholder
+		
+		function DeletePlaceholder()
+		{
+            var myselect = document.getElementById("fuzzing");
+            if(myselect.selectedIndex == -1) return;
+
+            var list_name = myselect.options[myselect.selectedIndex].value;
+			myselect.remove(myselect.selectedIndex);
+			
+            var list_data_elem = document.getElementById("fuzz_list_data");
+			list_data_elem.value = "";
+
+            // Parse list data and check value
+
+            for (var i = 0; i < fuzzing_array.length; i++) {
+                if (fuzzing_array[i].name == list_name) {
+                    fuzzing_array.remove(i);
+                }
+            }
+		}
+		
+		// Get fuzzlist array content by name
+		
+		function GetFuzzList(list_name)
+		{
+            // Parse list data and check value
+
+            for (var i = 0; i < fuzzing_array.length; i++) {
+                if (fuzzing_array[i].name == list_name) {
+                    var list_string = fuzzing_array[i].list;
+                    list_string = list_string.replace("\r\n","\n");
+					return list_string.split("\n");
+                }
+            }
+
+            return NULL;
+		}
+		
+		// Function that saves the executed payloads
+		
+		function js_callback(payload)
+		{
+			alert(unescape(payload));
+		}
+
+        // Basic HTML encode
+
+        function html_entities(str)
+        {
+            return str.replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/'/g,"&apos;").replace(/"/g,"&quot;");
+        } 
+		
+        var current_iframe = 0;
+		var current_payload = 0;
+		var process_interval;
+		
+        // If required to use GET/POST request
+
+        var urlmode;
+        var urlmethod;
+        var get_url;
+        var post_data;
+		var nr_iframes;
+		var selected_name;
+		var save_payload;
+		
+		// Function that processes the results in batches
+		
+		function ProcessResultsInBatches(payload_results)
+		{
+			current_iframe = 0;
+            if(current_payload == payload_results.length) 
+            {
+                clearInterval(process_interval);
+                alert("Fuzzing session finished!");
+            }
+			
+			// Create iframes
+			
+			CreateIframes(nr_iframes);
+			
+			// Iterate through payloads
+    
+			while(current_payload < payload_results.length)
+			{
+                if(current_iframe == nr_iframes)
+                {
+                    current_iframe = 0;
+					break;
+				}
+				
+				var clean_payload = payload_results[current_payload++];
+        		var updated_payload = clean_payload.replace("[SAVE_PAYLOAD]", save_payload);
+
+                // Check run mode 
+
+                if(selected_name == "1")
+                {
+		            all_iframes[current_iframe++].contentDocument.write(updated_payload.replace("[PAYLOAD]",escape(clean_payload)));
+                }
+                else if(selected_name == "2")
+                {
+                    // GET
+
+                    if(urlmethod == "GET")
+                    {
+                        all_iframes[current_iframe++].src = get_url.replace("[PAYLOAD]", escape(updated_payload.replace("[PAYLOAD]",escape(clean_payload))));
+                    }
+                    else 
+                    {
+                        // Create HTML form
+
+                        all_iframes[current_iframe].contentDocument.write('<form method="post" id="post_form" action="' + get_url.replace("[PAYLOAD]", 										escape(updated_payload.replace("[PAYLOAD]",escape(clean_payload)))) + '">\n');
+                
+                        // Parse POST data
+
+                        var params = post_data.split("&");
+                        for(var p = 0; p < params.length; p++)
+                        {
+                            var each_param = params[p].split("=");
+                            all_iframes[current_iframe].contentDocument.write('<input type="hidden" name="' 
+                        		+ html_entities(each_param[0].replace("[PAYLOAD]", html_entities(updated_payload.replace("[PAYLOAD]",escape(clean_payload))))) + '" value="' 
+                        		+ html_entities(each_param[1].replace("[PAYLOAD]", html_entities(updated_payload.replace("[PAYLOAD]",escape(clean_payload))))) + '" />\n');
+                        }
+                
+                        all_iframes[current_iframe++].contentDocument.write('</form><scr' + 'ipt>document.getElementById(\'post_form\').submit();</scr' + 'ipt>\n');
+                    }
+                }
+        	}
+		}
+		
+		// Function used to create the iframes
+		
+		var all_iframes = [];
+		var ifrm;
+		
+		function CreateIframes(nr_iframes)
+		{
+            // Cleanup
+			
+			all_iframes = [];
+			
+			var created_iframes = document.getElementsByTagName("iframe");
+
+			for (var i = 0; i < created_iframes.length; i++) 
+			{
+			    created_iframes[0].parentNode.removeChild(created_iframes[0]);
+			}
+			
+			// Create new iframes
+			
+            for(var i = 0; i < nr_iframes; i++)
+            {
+                var iframe = document.createElement("iframe");
+                iframe.width = 100;
+                iframe.height = 100;
+
+                ifrm.appendChild(iframe);
+                all_iframes.push(iframe);
+
+                // Add a <br />
+
+                if( (i + 1) % 10 == 0)
+                {
+                    var br = document.createElement("br");
+                    ifrm.appendChild(br);
+                }
+            }
+		}
+		
+		// Function that does something with the results
+		
+		function ProcessResults(payload_results)
+		{
+			var runmode = document.getElementById("runmode");
+            selected_name = runmode.options[runmode.selectedIndex].value;
+            save_payload = document.getElementById("save_payload").value;
+			
+			// Print them
+			
+			if(selected_name == "0")
+			{
+				for(var f = 0; f < payload_results.length; f++)
+				{
+					var print_result = payload_results[f].replace("[SAVE_PAYLOAD]", save_payload).replace(/</g,"&lt;").replace(/>/g,"&gt;");
+                    print_result = print_result.replace("[PAYLOAD]", escape(payload_results[f]));
+                    output.innerHTML += print_result;
+					output.innerHTML += "<br />\r\n";
+				}
+                output.innerHTML += "<br />\r\n";
+			}
+			
+			// Run in iframes
+			
+			if(selected_name == "1" || selected_name == "2")
+			{
+                ifrm = document.getElementById("runiframe");
+                nr_iframes = parseInt(document.getElementById("nr_iframes").value);
+				nr_delay = parseInt(document.getElementById("nr_delay").value);
+
+                // If required to use GET/POST request
+
+                urlmode = document.getElementById("urlmode");
+                urlmethod = urlmode.options[urlmode.selectedIndex].value;
+                get_url = document.getElementById("get_url").value;
+                post_data = document.getElementById("post_data").value;
+				
+				// Run in batches
+				
+				ProcessResultsInBatches(payload_results);
+				
+                process_interval = setInterval( function() 
+                {  
+					ProcessResultsInBatches(payload_results)
+				}, nr_delay);
+			}
+
+		}
+		
+		// Run function
+		
+		function Run()
+		{
+			// Get the payloads
+			
+			var payloadstext = document.getElementById("payloads").value;
+			payloadstext = payloadstext.replace("\r\n","\n");
+			var payloads = payloadstext.split("\n");
+			var output = document.getElementById("output");
+			
+			// Clean previous output
+			
+			output.innerHTML = "<br />\r\n";
+			document.getElementById("runiframe").innerHTML = "\r\n";
+			
+			// Iterate through payloads
+			
+			for(var i = 0; i < payloads.length; i++)
+			{
+				// Init payload list
+				
+				payload_results = [];
+				payload_results.push(payloads[i]);
+				var total_payloads = 1;
+			
+				// Check all placeholders
+				
+				for(var j = 0; j < fuzzing_array.length; j++)
+				{
+					total_payloads = payload_results.length;
+					var list_found = false;
+					
+					// Iterate through all previously stored payloads
+					
+					for(var p = 0; p < total_payloads; p++)
+					{
+						// Check if we have the placeholder in the tag
+						
+						if(payload_results[p].includes(fuzzing_array[j].name))
+						{
+							// Navigate through fuzz list
+							
+							var fuzz = GetFuzzList(fuzzing_array[j].name);
+							
+							for(var k = 0; k < fuzz.length; k++)
+							{
+								// Sava a list with all payloads
+								
+								var one_payload = payload_results[p].replace(fuzzing_array[j].name, fuzz[k]);
+								payload_results.push(one_payload);
+							}
+						}
+						else list_found = true;
+					}
+					
+					// Remove unused payloads
+					
+					if(!list_found) for(var r = 0; r < total_payloads; r++) payload_results.remove(0);
+				}
+				
+				// Print the results
+				
+				ProcessResults(payload_results);
+			}
+		}
+		
+        // When run mode is changed
+
+        function RunModeChanged()
+        {
+            var runmode = document.getElementById("runmode");
+			var selected_name = runmode.options[runmode.selectedIndex].value;
+            var nr_iframes = document.getElementById("run_nr_iframes");
+			var nr_delay = document.getElementById("run_nr_delay");
+            var req_iframes = document.getElementById("request_iframes");
+            var req_iframes_url = document.getElementById("request_iframes_url");
+            var req_iframes_data = document.getElementById("request_iframes_data");
+
+            // Print them
+			
+			if(selected_name == "0")
+			{
+                nr_iframes.style.display = "none";
+				nr_delay.style.display = "none";
+                req_iframes.style.display = "none";
+                req_iframes_url.style.display = "none";
+                req_iframes_data.style.display = "none";
+			}
+			
+			// Run in iframe
+			
+			if(selected_name == "1")
+			{
+                nr_iframes.style.display = "";
+				nr_delay.style.display = "";
+                req_iframes.style.display = "none";
+                req_iframes_url.style.display = "none";
+                req_iframes_data.style.display = "none";
+			}
+
+            // Run in request
+			
+			if(selected_name == "2")
+			{
+                nr_iframes.style.display = "";
+				nr_delay.style.display = "";
+                req_iframes.style.display = "";
+                req_iframes_url.style.display = "";
+                req_iframes_data.style.display = "";
+			}
+        }
+		
+    </script>
+
+</head>
+
+<body onload="Initialization()">
+
+    <table class="blueTable" align="center"> 
+
+    <thead>
+        <tr align="center">
+            <th colspan="3">
+                XSS Fuzzer
+            </th>
+        </tr>
+
+        <tr align="center">
+            <th width="50%">
+                Payloads
+            </th>
+            <th width="25%">
+                Fuzzing lists
+            </th>
+            <th width="25%">
+                List
+            </th>
+        </tr>
+    </thead>
+
+        <tr align="center">
+            <td>
+                <textarea class="round" placeholder="Payloads here..." id="payloads" rows="10" cols="80">&lt;[TAG] [ATTR]=Something [EVENT]=[SAVE_PAYLOAD] /&gt;</textarea>
+            </td>
+
+            <td>
+				<br />
+                <select id="fuzzing" size="10" onchange="SelectChanged()" style="width: 200px;">
+		        </select>
+                <br /><br /> 
+				<input type="button" class="button-simple" value="Delete" onclick="DeletePlaceholder()" />
+				<br /><br />
+				Placeholder: <input type="text" id="placeholder" value="" />
+                <input type="button" class="button-simple" value="Add" onclick="AddPlaceholder()" />
+				<br /><br />
+            </td>
+
+            <td>
+                <textarea placeholder="Select a list" id="fuzz_list_data" class="round" rows="10" cols="30"></textarea>
+                <br /><br />
+                <input type="button" class="button-simple" value="Save" onclick="SaveFuzzingList()" />
+            </td>
+        </tr>
+
+        <tr>
+            <td colspan="2" style="padding: 20px;">
+                
+                <table>
+                
+                    <tr>
+                        <td style="border:none" width="100">Run mode: </td>
+				        <td style="border:none" width="400">
+                            <select id="runmode" onchange="RunModeChanged()">
+					            <option value="0">Print results</option>
+                                <option value="1">Run in iframe(s)</option>
+                                <option value="2">Run in GET/POST data in iframe(s)</option>
+                            </select>
+                        </td>
+                    </tr>
+
+                    <tr id="run_nr_iframes_payload">
+                        <td style="border:none">
+                            [SAVE_PAYLOAD]: 
+                        </td>
+                        <td style="border:none">
+                            <input type="text" style="width: 300px;" id="save_payload" value="alert(unescape('[PAYLOAD]'));" />
+                        </td>
+                    </tr>
+
+                    <tr id="run_nr_iframes" style="display: none">
+                        <td style="border:none">
+                            Nr. of iframes: 
+                        </td>
+                        <td style="border:none">
+                            <input type="text" style="width: 50px;" id="nr_iframes" value="100" />
+                        </td>
+                    </tr>
+					
+                    <tr id="run_nr_delay" style="display: none">
+                        <td style="border:none">
+                            Iframes delay: 
+                        </td>
+                        <td style="border:none">
+                            <input type="text" style="width: 50px;" id="nr_delay" value="5000" />
+                        </td>
+                    </tr>
+
+                    <tr id="request_iframes" style="display: none">
+                        <td style="border:none">Request type:  </td>
+                        <td style="border:none">
+                            <select id="urlmode">
+                                <option value="GET">GET</option>
+                                <option value="POST">POST</option>
+                            </select>
+                        </td>
+                    </tr>
+
+                    <tr id="request_iframes_url" style="display: none">
+                        <td style="border:none">URL:</td>
+                        <td style="border:none"><input type="text" style="width: 300px;" id="get_url" value="" /></td>
+                    </tr>
+
+                    <tr id="request_iframes_data" style="display: none">
+                        <td style="border:none">POST data: </td>
+                        <td style="border:none"><input type="text" style="width: 300px;" id="post_data" value="" /></td> 
+                    </tr>
+
+                </table>
+
+            </td>
+
+            <td align="center">
+                <input type="button" onclick="Run()" value="Run" class="button-success" />
+            </td>
+        </tr>
+		
+		<tr>
+			<td colspan="3" style="padding-left: 20px;">
+                <br />Output: <br />
+				<div id="runiframe"></div><br />
+                <div id="output"></div>
+			</td>
+		</tr>
+
+    </table>
+
+</body>
+
+</html>
