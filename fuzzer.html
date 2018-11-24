@@ -251,10 +251,15 @@ table.blueTable thead th:first-child {
 		function ProcessResultsInBatches(payload_results)
 		{
 			current_iframe = 0;
+
+            // Finished fuzzing
+
             if(current_payload == payload_results.length) 
             {
                 clearInterval(process_interval);
+                current_payload = 0;
                 alert("Fuzzing session finished!");
+                return;
             }
 			
 			// Create iframes
@@ -321,21 +326,16 @@ table.blueTable thead th:first-child {
             // Cleanup
 			
 			all_iframes = [];
-			
-			var created_iframes = document.getElementsByTagName("iframe");
-
-			for (var i = 0; i < created_iframes.length; i++) 
-			{
-			    created_iframes[0].parentNode.removeChild(created_iframes[0]);
-			}
+			ifrm = document.getElementById("runiframe");
+            ifrm.innerHTML = "";
 			
 			// Create new iframes
 			
             for(var i = 0; i < nr_iframes; i++)
             {
                 var iframe = document.createElement("iframe");
-                iframe.width = 100;
-                iframe.height = 100;
+                iframe.width = 140;
+                iframe.height = 140;
 
                 ifrm.appendChild(iframe);
                 all_iframes.push(iframe);
