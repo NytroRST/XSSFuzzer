@@ -283,7 +283,10 @@ table.blueTable thead th:first-child {
 
                 if(selected_name == "1")
                 {
-		            all_iframes[current_iframe++].contentDocument.write(updated_payload.replace("[PAYLOAD]",escape(clean_payload)));
+		            var doc = all_iframes[current_iframe++].contentWindow.document;
+					doc.open();
+					doc.write(updated_payload.replace("[PAYLOAD]",escape(clean_payload)));
+					doc.close();
                 }
                 else if(selected_name == "2")
                 {
@@ -297,7 +300,7 @@ table.blueTable thead th:first-child {
                     {
                         // Create HTML form
 
-                        all_iframes[current_iframe].contentDocument.write('<form method="post" id="post_form" action="' + get_url.replace("[PAYLOAD]", 										escape(updated_payload.replace("[PAYLOAD]",escape(clean_payload)))) + '">\n');
+                        var form_content = '<form method="post" id="post_form" action="' + get_url.replace("[PAYLOAD]",escape(updated_payload.replace("[PAYLOAD]",escape(clean_payload)))) + '">\n';
                 
                         // Parse POST data
 
@@ -305,12 +308,15 @@ table.blueTable thead th:first-child {
                         for(var p = 0; p < params.length; p++)
                         {
                             var each_param = params[p].split("=");
-                            all_iframes[current_iframe].contentDocument.write('<input type="hidden" name="' 
+                            form_content += '<input type="hidden" name="' 
                         		+ html_entities(each_param[0].replace("[PAYLOAD]", html_entities(updated_payload.replace("[PAYLOAD]",escape(clean_payload))))) + '" value="' 
-                        		+ html_entities(each_param[1].replace("[PAYLOAD]", html_entities(updated_payload.replace("[PAYLOAD]",escape(clean_payload))))) + '" />\n');
+                        		+ html_entities(each_param[1].replace("[PAYLOAD]", html_entities(updated_payload.replace("[PAYLOAD]",escape(clean_payload))))) + '" />\n';
                         }
                 
-                        all_iframes[current_iframe++].contentDocument.write('</form><scr' + 'ipt>document.getElementById(\'post_form\').submit();</scr' + 'ipt>\n');
+                        var doc = all_iframes[current_iframe++].contentWindow.document;
+						doc.open();
+						doc.write(form_content + '</form><scr' + 'ipt>document.getElementById(\'post_form\').submit();</scr' + 'ipt>\n');
+						doc.close();
                     }
                 }
         	}

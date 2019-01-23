@@ -1,10 +1,10 @@
-**XSS Fuzzer**
+# XSS Fuzzer
 
 XSS Fuzzer is a simple application written in plain HTML/JavaScript/CSS which generates XSS payloads based on user-defined vectors using multiple placeholders which are replaced with fuzzing lists.
 
 It offers the possibility to just generate the payloads as plain-text or to execute them inside an iframe. Inside iframes, it is possible to send GET or POST requests from the browser to arbitrary URLs using generated payloads.
 
-**Why?**
+# Why? 
 
 XSS Fuzzer is a generic tool that can be useful for multiple purposes, including:
 
@@ -14,7 +14,7 @@ XSS Fuzzer is a generic tool that can be useful for multiple purposes, including
 * Bypassing web application firewalls
 * Exploiting HTML whitelist features
 
-**Example**
+# Example
 
 In order to fuzz, it is required to create placeholders, for example:
 
@@ -52,14 +52,14 @@ When it is executed in a browser such as Mozilla Firefox, it will alert the exec
 <img src=Something onerror=[SAVE_PAYLOAD] />
 ```
 
-**Sending requests**
+# Sending requests
 
 It is possible to use a page vulnerable to XSS for different tests, such as bypasses for the browser XSS Auditor. The page can receive a GET or POST parameter called payload and will just display its unescaped value.
 
-**Website**
+# Website
 
 A live version can be found at https://xssfuzzer.com 
 
-**Contact**
+# Contact
 
 The application is in beta state so it might have bugs. If you would like to report a bug or provide a suggestion, you can use the GitHub repository or you can send me an email to contact [a] xssfuzzer.com.
